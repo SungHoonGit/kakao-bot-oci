@@ -1,0 +1,23 @@
+name: Deploy to OCI
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 140.245.80.117
+          username: ubuntu
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/kakao-bot-oci
+            git pull
+            sudo systemctl restart kakao-bot
+            echo "Deploy complete!"
