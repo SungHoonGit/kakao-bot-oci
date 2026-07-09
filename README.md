@@ -33,10 +33,31 @@ kakao-bot-oci/
 
 | 항목 | 사양 |
 |------|------|
-| VM | Oracle Cloud Free Tier (VM.Standard.E2.1.Micro) |
-| OS | Ubuntu 22.04+ or Oracle Linux 8+ |
-| 방화벽 | VCN 보안 목록에서 **80, 443, 5000** 인바운드 허용 |
-| SSH | 전용키로 접속 |
+| VM | Oracle Cloud Free Tier (VM.Standard.A1.Flex or E2.1.Micro) |
+| OS | Ubuntu 22.04+ (Minimal도 무방) |
+| SSH | 키 기반 접속 (암호 로그인 불가) |
+
+#### 1-a. VCN 보안목록 오픈 (필수)
+OCI 2중 방화벽 — **Security List + VM iptables** 둘 다 열어야 함.
+
+**Security List**: VCN → Security → Default Security List → **Add Ingress Rules**
+
+| Port | Protocol | Source | Stateless | 용도 |
+|------|----------|--------|-----------|------|
+| 80 | TCP | 0.0.0.0/0 | 해제 | HTTP (Apache/nginx) |
+| 443 | TCP | 0.0.0.0/0 | 해제 | HTTPS (SSL) |
+
+*22번(SSH)은 VCN 생성 시 자동 추가됨*
+
+#### 1-b. VM iptables 오픈 (Ubuntu Minimal 필수)
+Minimal 이미지는 SSH(22)만 허용하고 나머지 REJECT함.
+
+```bash
+ssh ubuntu@<IP>
+sudo iptables -I INPUT 4 -p tcp --dport 80 -m state --state NEW -j ACCEPT
+sudo iptables -I INPUT 4 -p tcp --dport 443 -m state --state NEW -j ACCEPT
+sudo netfilter-persistent save
+```
 
 ### 2. 저장소 클론 & 설정
 
@@ -130,7 +151,9 @@ journalctl -u kakao-bot -f
 | 502 Bad Gateway | Flask 서버 미실행 | `sudo systemctl start kakao-bot` |
 | 스킬 타임아웃 | 스크래핑 지연 | 검색어 변경 또는 서버 로그 확인 |
 | certbot SSL 발급 실패 | 도메인 미설정 | 도메인 DNS 레코드 확인 |
-| OCI Public IP 차단됨 | VCN 보안목록 미설정 | OCI 콘솔 → 네트워킹 → 보안목록 수정 |
+| 외부 접속 안 됨 (timeout) | OCI Security List or iptables | 위 "1-a, 1-b" 항목 확인 |
+| 외부 접속 안 됨 (connection refused) | Flask 서버 미실행 | `sudo systemctl status kakao-bot` |
+| i.kakao.com "Request timeout after 5000 ms" | 80포트 막힘 | Security List + iptables 둘 다 확인 |
 
 ## 관련 프로젝트
 
