@@ -121,7 +121,33 @@ journalctl -u kakao-bot -f
 - **응답 유형**: **스킬 데이터** 선택
 - 봇테스트로 검증 후 카카오톡 채널에서 테스트
 
-### 6. 카카오톡 사용 예시
+### 6. CI/CD — 자동 배포
+
+main 브랜치에 push하면 **GitHub Actions**가 OCI VM에 자동 배포합니다.
+
+```
+push → main
+  ↓
+GitHub Actions: Deploy to OCI
+  ↓
+SSH → git pull → sudo systemctl restart kakao-bot
+```
+
+**사전 설정 (1회):**
+1. https://github.com/SungHoonGit/kakao-bot-oci/settings/secrets/actions
+2. **New repository secret** → `OCI_SSH_KEY` = OCI VM SSH 개인키
+3. 이후 main에 push할 때마다 자동 배포
+
+**배포 확인:**
+```bash
+# Actions 탭에서 로그 확인
+https://github.com/SungHoonGit/kakao-bot-oci/actions
+
+# 또는 OCI에서 직접 확인
+sudo journalctl -u kakao-bot -f
+```
+
+### 7. 카카오톡 사용 예시
 
 ```
 리액트
