@@ -30,8 +30,9 @@ C:\Users\KIM\git\kakao-bot\               ← git root
 ├── bot_server.py                          ← Flask 웹훅 서버
 │   ├── POST /webhook                      ← 스킬 응답 (listCard + quickReplies)
 │   │   ├── extract_search_params()        ← 자연어 파싱 (키워드/지역/경력)
-│   │   ├── search_jobs()                  ← scrapers 호출 + 경력 필터
-│   │   └── make_kakao_response()          ← listCard + RELATED 추천
+│   │   ├── search_jobs()                  ← scrapers 호출 + 경력/지역 필터
+│   │   ├── _extract_related_from_jobs()   ← 제목 빈도분석 → 유사 키워드 추출
+│   │   └── make_kakao_response()          ← listCard + quickReplies 구성
 │   └── POST /send                         ← 수동 알림 전송
 │
 └── scripts/
@@ -75,12 +76,8 @@ C:\Users\KIM\git\kakao-bot\               ← git root
 
 ## RELATED 추천 (quickReplies)
 
-| 검색어 | 추천1 | 추천2 |
-|--------|-------|-------|
-| React | 프론트엔드 | TypeScript |
-| Java | Spring | 백엔드 |
-| Python | Django | 백엔드 |
-| 기타 | 리액트 | 자바 신입 |
+검색 결과 공고 제목에서 공통 키워드를 자동 추출하여 동적 생성.
+결과 없으면 fallback: 리액트 / 자바 신입
 
 ## Config
 
