@@ -100,20 +100,34 @@ def search_jobs(params: dict) -> list[dict]:
     return jobs
 
 
-RELATED = {
-    "React": ["프론트엔드", "TypeScript"], "Frontend": ["React", "TypeScript"],
-    "Java": ["Spring", "백엔드"], "Spring": ["Java", "백엔드"],
-    "Python": ["Django", "백엔드"], "Backend": ["Java", "Python"],
-    "TypeScript": ["React", "프론트엔드"], "Android": ["Kotlin", "Java"],
-    "Node.js": ["JavaScript", "백엔드"], "Kubernetes": ["Docker", "클라우드"],
-}
+STOP_WORDS = {"개발자", "채용", "구인", "모집", "프리랜서", "정규직", "계약직",
+              "주니어", "시니어", "중급", "고급", "초급", "신입", "경력",
+              "프로젝트", "가능", "우대", "필수", "담당", "업무", "조건"}
+
+FALLBACK_REPLIES = ["리액트", "자바 신입"]
 
 
-def _build_quick_replies(user_msg: str, query: str) -> list[dict]:
+def _extract_related_from_jobs(jobs: list[dict], exclude_query: str) -> list[str]:
+    exclude_lower = exclude_query.lower()
+    word_counts = {}
+    for job in jobs:
+        for w in re.split(r"[\s\[\]\(\)\/,|·‧:]+", job.get("title", "")):
+            w = w.strip().strip("-")
+            if not w or len(w) < 2:
+                continue
+            if w.lower() == exclude_lower or w.lower() in STOP_WORDS:
+                continue
+            if re.match(r"^\d+$", w):
+                continue
+            word_counts[w] = word_counts.get(w, 0) + 1
+    return [w for w, _ in sorted(word_counts.items(), key=lambda x: -x[1])[:2]]
+
+
+def _build_quick_replies(user_msg: str, query: str, jobs: list[dict]) -> list[dict]:
     replies = [
         {"label": "🔄 동일 검색", "action": "message", "messageText": user_msg},
     ]
-    for r in RELATED.get(query, ["리액트", "자바 신입"])[:2]:
+    for r in _extract_related_from_jobs(jobs, query) or FALLBACK_REPLIES:
         replies.append({"label": r, "action": "message", "messageText": r})
     return replies
 
@@ -137,7 +151,7 @@ def make_kakao_response(jobs: list[dict], params: dict, user_msg: str = "") -> d
         elif ct:
             label += f" {ct}년차 이하"
 
-    quick_replies = _build_quick_replies(user_msg, query)
+    quick_replies = _build_quick_replies(user_msg, query, jobs)
 
     if not jobs:
         return {
