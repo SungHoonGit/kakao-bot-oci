@@ -18,6 +18,7 @@ kakao-bot-oci/
 ├── deploy/
 │   ├── setup.sh               # OCI 배포 스크립트
 │   ├── apache.conf            # Apache 리버스 프록시 설정
+│   ├── nginx.conf             # nginx 리버스 프록시 설정
 │   └── kakao-bot.service      # systemd 서비스
 ├── scripts/
 │   ├── get_token.py           # OAuth 토큰 발급
@@ -60,12 +61,13 @@ EOF
 ### 3. 원클릭 배포
 
 ```bash
-# 도메인 있는 경우
+# Apache (기본)
 chmod +x deploy/setup.sh
-sudo ./deploy/setup.sh your-domain.com
+sudo ./deploy/setup.sh                       # 도메인 없음
+sudo ./deploy/setup.sh your-domain.com        # 도메인 + SSL
 
-# 도메인 없는 경우 (IP 직접 사용, SSL 없음)
-sudo ./deploy/setup.sh
+# nginx
+sudo ./deploy/setup.sh your-domain.com nginx
 ```
 
 ### 4. (선택) 수동 설정
@@ -76,6 +78,11 @@ sudo a2enmod proxy proxy_http
 sudo cp deploy/apache.conf /etc/apache2/sites-available/kakao-bot.conf
 sudo a2ensite kakao-bot.conf
 sudo systemctl reload apache2
+
+# nginx
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/kakao-bot
+sudo ln -s /etc/nginx/sites-available/kakao-bot /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
 
 # systemd
 sudo cp deploy/kakao-bot.service /etc/systemd/system/
