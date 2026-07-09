@@ -63,6 +63,29 @@ class KakaoAPI:
             self._save_token()
         return result
 
+    def refresh_access_token(self) -> bool:
+        """refresh_token 으로 access_token 갱신"""
+        if not self.refresh_token:
+            print("  [kakao] refresh_token 없음")
+            return False
+        payload = {
+            "grant_type": "refresh_token",
+            "client_id": self.rest_api_key,
+            "refresh_token": self.refresh_token,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        resp = requests.post(self.TOKEN_URL, data=payload, headers=headers, timeout=15)
+        result = resp.json()
+        if resp.status_code == 200 and "access_token" in result:
+            self.access_token = result["access_token"]
+            if result.get("refresh_token"):
+                self.refresh_token = result["refresh_token"]
+            self._save_token()
+            print("  [kakao] 토큰 갱신 성공")
+            return True
+        print(f"  [kakao] 토큰 갱신 실패: {resp.status_code} {result}")
+        return False
+
     def _save_token(self):
         cfg = load_config()
         cfg.setdefault("kakao", {})
@@ -81,7 +104,7 @@ class KakaoAPI:
         print(f"  [kakao] friends API error: {resp.status_code} {resp.text}")
         return []
 
-    def send_to_me(self, template: dict) -> dict:
+    def send_to_me(self, template: dict, auto_refresh: bool = True) -> dict:
         auth = self._auth_header()
         if not auth:
             return {"error": "no token"}
@@ -91,9 +114,14 @@ class KakaoAPI:
             data={"template_object": json.dumps(template, ensure_ascii=False)},
             timeout=15,
         )
-        return resp.json()
+        result = resp.json()
+        if auto_refresh and result.get("result_code") == -401 and self.refresh_token:
+            print("  [kakao] 토큰 만료, 갱신 후 재시도...")
+            if self.refresh_access_token():
+                return self.send_to_me(template, auto_refresh=False)
+        return result
 
-    def send_to_friend(self, friend_uuid: str, template: dict) -> dict:
+    def send_to_friend(self, friend_uuid: str, template: dict, auto_refresh: bool = True) -> dict:
         auth = self._auth_header()
         if not auth:
             return {"error": "no token"}
@@ -106,7 +134,12 @@ class KakaoAPI:
             },
             timeout=15,
         )
-        return resp.json()
+        result = resp.json()
+        if auto_refresh and result.get("result_code") == -401 and self.refresh_token:
+            print("  [kakao] 토큰 만료, 갱신 후 재시도...")
+            if self.refresh_access_token():
+                return self.send_to_friend(friend_uuid, template, auto_refresh=False)
+        return result
 
     def send_job_alert(self, alerts: list[dict], to_friends: list[str] = None):
         count = len(alerts)

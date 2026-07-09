@@ -6,7 +6,6 @@ Usage:
     python3 scripts/send_daily.py ../job-scraper/daily                  # flat 구조
     python3 scripts/send_daily.py ../job-scraper/daily/react ../job-scraper/daily/java  # profile 구조
 """
-import json
 import re
 import sys
 import os
@@ -83,10 +82,12 @@ def main():
         sys.exit(1)
 
     api = KakaoAPI()
-    if not api.access_token:
-        if not api.refresh_token:
-            print("토큰이 없습니다. get_token.py 를 먼저 실행하세요.")
-            sys.exit(1)
+    if not api.access_token and not api.refresh_token:
+        print("토큰이 없습니다. get_token.py 를 먼저 실행하세요.")
+        sys.exit(1)
+
+    # 일일 cron에서는 access_token이 만료되었을 가능성이 높으므로 우선 갱신
+    if api.refresh_token:
         print("  [kakao] 토큰 갱신...")
         api.refresh_access_token()
 
