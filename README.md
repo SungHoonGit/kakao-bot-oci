@@ -17,7 +17,7 @@ kakao-bot-oci/
 │   └── POST /send             # 수동 알림 전송
 ├── deploy/
 │   ├── setup.sh               # OCI 배포 스크립트
-│   ├── nginx.conf             # nginx 리버스 프록시 + SSL 설정
+│   ├── apache.conf            # Apache 리버스 프록시 설정
 │   └── kakao-bot.service      # systemd 서비스
 ├── scripts/
 │   ├── get_token.py           # OAuth 토큰 발급
@@ -71,10 +71,11 @@ sudo ./deploy/setup.sh
 ### 4. (선택) 수동 설정
 
 ```bash
-# nginx
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/kakao-bot
-sudo ln -s /etc/nginx/sites-available/kakao-bot /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+# Apache
+sudo a2enmod proxy proxy_http
+sudo cp deploy/apache.conf /etc/apache2/sites-available/kakao-bot.conf
+sudo a2ensite kakao-bot.conf
+sudo systemctl reload apache2
 
 # systemd
 sudo cp deploy/kakao-bot.service /etc/systemd/system/

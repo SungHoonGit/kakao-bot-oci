@@ -6,7 +6,7 @@ DOMAIN="${1:-}"
 
 # --- 시스템 패키지 ---
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3 python3-venv python3-pip nginx certbot python3-certbot-nginx git
+sudo apt install -y python3 python3-venv python3-pip apache2 certbot python3-certbot-apache git
 
 # --- 프로젝트 클론 ---
 if [ ! -d /home/ubuntu/kakao-bot-oci ]; then
@@ -36,36 +36,18 @@ if [ ! -f config.json ]; then
 EOF
 fi
 
-# --- nginx 설정 ---
+# --- Apache 설정 ---
+sudo a2enmod proxy proxy_http
+sudo cp deploy/apache.conf /etc/apache2/sites-available/kakao-bot.conf
+sudo a2dissite 000-default.conf 2>/dev/null || true
+sudo a2ensite kakao-bot.conf
+
+# SSL (도메인 있는 경우)
 if [ -n "$DOMAIN" ]; then
-    sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "admin@$DOMAIN" || true
+    sudo certbot --apache -d "$DOMAIN" --non-interactive --agree-tos -m "admin@$DOMAIN" || true
 fi
 
-# nginx config 복사
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/kakao-bot
-sudo ln -sf /etc/nginx/sites-available/kakao-bot /etc/nginx/sites-enabled/
-# nginx.conf의 YOUR_DOMAIN을 실제 도메인으로 치환 (도메인 없는 경우 IP 사용)
-if [ -n "$DOMAIN" ]; then
-    sudo sed -i "s/YOUR_DOMAIN/$DOMAIN/g" /etc/nginx/sites-available/kakao-bot
-else
-    # 도메인 없으면 SSL 없이 80 only
-    sudo tee /etc/nginx/sites-available/kakao-bot > /dev/null <<'EOF'
-upstream kakao_bot {
-    server 127.0.0.1:5000;
-}
-server {
-    listen 80;
-    server_name _;
-    location / {
-        proxy_pass http://kakao_bot;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-}
-EOF
-fi
-sudo nginx -t && sudo systemctl reload nginx
+sudo systemctl reload apache2
 
 # --- systemd 서비스 ---
 sudo cp deploy/kakao-bot.service /etc/systemd/system/kakao-bot.service
@@ -73,11 +55,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable kakao-bot
 sudo systemctl start kakao-bot
 
-# --- 방화벽 (Oracle Cloud VCN에서도 허용 필요) ---
-sudo ufw allow 80/tcp 2>/dev/null || true
-sudo ufw allow 443/tcp 2>/dev/null || true
-
 echo ""
 echo "=== 배포 완료! ==="
-echo "sudo systemctl status kakao-bot  # 상태 확인"
+echo "sudo systemctl status kakao-bot    # 봇 서버 상태"
+echo "sudo systemctl status apache2      # 아파치 상태"
 echo ""
