@@ -164,44 +164,55 @@ def make_kakao_response(jobs: list[dict], params: dict, user_msg: str = "") -> d
             }
         }
 
+    site_names = {"jobkorea": "잡코리아", "saramin": "사람인", "wanted": "원티드"}
     site_icons = {"jobkorea": "JK", "saramin": "SR", "wanted": "WT"}
-    items = []
-    for job in jobs[:5]:
-        site = job.get("site", "")
-        icon = site_icons.get(site, site.upper()[:2])
-        company = job.get("company", "?")
-        title = job.get("title", "")
-        career = job.get("career", "")
-        deadline = job.get("deadline", "")
 
-        parts = []
-        if career and career != "-":
-            parts.append(career)
-        if deadline and deadline != "-":
-            parts.append(deadline)
-        desc = title[:60]
-        if parts:
-            desc += "\n" + " | ".join(parts)
+    grouped = {}
+    for job in jobs:
+        site = job.get("site", "other")
+        grouped.setdefault(site, []).append(job)
 
-        items.append({
-            "title": f"[{icon}] {company}",
-            "description": desc,
-            "link": {"web": job["url"]}
+    cards = []
+    for site in ["jobkorea", "saramin", "wanted"]:
+        site_jobs = grouped.get(site, [])
+        if not site_jobs:
+            continue
+        items = []
+        for job in site_jobs[:5]:
+            parts = []
+            if job.get("career") and job["career"] != "-":
+                parts.append(job["career"])
+            if job.get("deadline") and job["deadline"] != "-":
+                parts.append(job["deadline"])
+            desc = job.get("title", "")[:60]
+            if parts:
+                desc += "\n" + " | ".join(parts)
+            items.append({
+                "title": job.get("company", "?"),
+                "description": desc,
+                "link": {"web": job["url"]}
+            })
+        cards.append({
+            "header": {"title": f"{site_icons[site]} {site_names[site]} ({len(site_jobs)}건)"},
+            "items": items
         })
+
+    if len(cards) == 1:
+        card = cards[0]
+        card["header"]["title"] = f"🔍 {label} 검색 결과 ({len(jobs)}건)  " + card["header"]["title"]
+        output = {"listCard": card}
+    else:
+        output = {
+            "carousel": {
+                "type": "listCard",
+                "items": cards
+            }
+        }
 
     return {
         "version": "2.0",
         "template": {
-            "outputs": [
-                {
-                    "listCard": {
-                        "header": {
-                            "title": f"🔍 {label} 검색 결과 ({len(jobs)}건)"
-                        },
-                        "items": items
-                    }
-                }
-            ],
+            "outputs": [output],
             "quickReplies": quick_replies
         }
     }
