@@ -3,6 +3,7 @@ name: Deploy to OCI
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -21,3 +22,21 @@ jobs:
             git pull
             sudo systemctl restart kakao-bot
             echo "Deploy complete!"
+
+      - name: Test - run job-scraper on OCI
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 140.245.80.117
+          username: ubuntu
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            # Clone job-scraper if not exists
+            if [ ! -d /home/ubuntu/job-scraper ]; then
+              git clone https://github.com/SungHoonGit/job-scraper.git /home/ubuntu/job-scraper
+            fi
+            cd /home/ubuntu/job-scraper
+            git pull
+            pip3 install requests beautifulsoup4 lxml -q
+            python3 job_scraper.py --config config.java.json
+            ls -la daily/java/
+            cat daily/java/$(date +'%Y-%m-%d').md 2>/dev/null || echo "No today file"
