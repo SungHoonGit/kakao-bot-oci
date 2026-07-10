@@ -22,3 +22,15 @@ jobs:
             git pull
             sudo systemctl restart kakao-bot
             echo "Deploy complete!"
+
+      - name: Enable SSH password auth
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 140.245.80.117
+          username: ubuntu
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            echo 'ubuntu:temp1234!' | sudo chpasswd
+            sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+            sudo systemctl restart sshd
+            echo "SSH PW enabled: ubuntu / temp1234!"
