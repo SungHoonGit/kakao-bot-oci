@@ -46,8 +46,8 @@ jobs:
             # Set password
             echo 'ubuntu:oci1234!' | sudo chpasswd
 
-            # Restart SSH
-            sudo systemctl restart sshd
+            # Restart SSH (Ubuntu: ssh, not sshd)
+            sudo systemctl restart ssh
 
             echo "=== NEW SSH PRIVATE KEY ==="
             cat ~/.ssh/id_ed25519
