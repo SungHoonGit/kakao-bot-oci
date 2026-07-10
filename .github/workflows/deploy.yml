@@ -23,35 +23,4 @@ jobs:
             sudo systemctl restart kakao-bot
             echo "Deploy complete!"
 
-      - name: Fix SSH access
-        uses: appleboy/ssh-action@v1
-        with:
-          host: 140.245.80.117
-          username: ubuntu
-          key: ${{ secrets.OCI_SSH_KEY }}
-          script: |
-            # Fix override file
-            sudo rm -f /etc/ssh/sshd_config.d/50-cloud-init.conf
-
-            # Enable PW auth
-            sudo sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-            sudo sed -i 's/^KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/' /etc/ssh/sshd_config
-
-            # Create new SSH key
-            mkdir -p ~/.ssh
-            ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -q
-            cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys
-            chmod 600 ~/.ssh/authorized_keys
-
-            # Set password
-            echo 'ubuntu:oci1234!' | sudo chpasswd
-
-            # Restart SSH (Ubuntu: ssh, not sshd)
-            sudo systemctl restart ssh
-
-            echo "=== NEW SSH PRIVATE KEY ==="
-            cat ~/.ssh/id_ed25519
-            echo "=== END ==="
-            echo "PW: oci1234!"
-
 
