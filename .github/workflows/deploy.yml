@@ -16,7 +16,7 @@ jobs:
         with:
           host: 140.245.95.162
           username: ubuntu
-          key: ${{ secrets.OCI_SSH_KEY }}
+          password: ${{ secrets.OCI_SSH_PW }}
           script: |
             cd /home/ubuntu/kakao-bot-oci
             git pull
