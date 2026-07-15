@@ -175,49 +175,49 @@ def make_kakao_response(jobs: list[dict], params: dict, user_msg: str = "") -> d
         site = job.get("site", "other")
         grouped.setdefault(site, []).append(job)
 
-    cards = []
-    for site in ["jobkorea", "saramin", "wanted"]:
-        site_jobs = grouped.get(site, [])
-        if not site_jobs:
-            continue
-        items = []
-        for job in site_jobs[:5]:
-            parts = []
-            if job.get("career") and job["career"] != "-":
-                parts.append(job["career"])
-            if job.get("deadline") and job["deadline"] != "-":
-                parts.append(job["deadline"])
-            desc = job.get("title", "")[:60]
-            if parts:
-                desc += "\n" + " | ".join(parts)
-            items.append({
-                "title": job.get("company", "?"),
-                "description": desc,
-                "link": {"web": job["url"]}
-            })
-        cards.append({
-            "header": {"title": f"{site_icons[site]} {site_names[site]} ({len(site_jobs)}건)"},
-            "items": items
-        })
-
-    if len(cards) == 1:
-        card = cards[0]
-        card["header"]["title"] = f"🔍 {label} 검색 결과 ({len(jobs)}건)  " + card["header"]["title"]
-        output = {"listCard": card}
-    else:
-        output = {
-            "carousel": {
-                "type": "listCard",
-                "items": cards
-            }
+    # 카카오 listCard 는 항목 수 제한(최대 5개)이 있고,
+    # carousel 은 quickReplies 터치 영역 오정렬을 유발하므로
+    # 여러 사이트 결과를 라운드로빈으로 섞어 단일 listCard(최대 5건)로 구성한다.
+    def _build_item(job, site):
+        parts = []
+        if job.get("career") and job["career"] != "-":
+            parts.append(job["career"])
+        if job.get("deadline") and job["deadline"] != "-":
+            parts.append(job["deadline"])
+        desc = job.get("title", "")[:60]
+        if parts:
+            desc += "\n" + " | ".join(parts)
+        return {
+            "title": f"[{site_icons[site]}] {job.get('company', '?')}",
+            "description": desc,
+            "link": {"web": job["url"]},
         }
+
+    items = []
+    idx = {s: 0 for s in ["jobkorea", "saramin", "wanted"]}
+    for _ in range(5):
+        progressed = False
+        for site in ["jobkorea", "saramin", "wanted"]:
+            site_jobs = grouped.get(site, [])
+            if idx[site] < len(site_jobs) and len(items) < 5:
+                items.append(_build_item(site_jobs[idx[site]], site))
+                idx[site] += 1
+                progressed = True
+        if not progressed:
+            break
+
+    header_title = f"🔍 {label} 검색 결과 ({len(jobs)}건)"
+    if len(jobs) > len(items):
+        header_title += f" · 상위 {len(items)}건"
+
+    output = {"listCard": {"header": {"title": header_title}, "items": items}}
 
     # 별도 simpleText 출력은 카카오톡에서 listCard/carousel 과 함께 쓸 때
     # quickReplies 터치 영역이 시각 위치와 어긋나는 버그를 유발하므로,
     # 추천 검색어(유사단어)는 첫 카드 본문(description)에만 넣는다.
     if related:
         tip = "추천: " + " · ".join(related)
-        first = cards[0]
+        first = output["listCard"]
         if first.get("items"):
             first["items"][0]["description"] = (
                 first["items"][0].get("description", "") + "\n" + tip
