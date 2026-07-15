@@ -78,11 +78,66 @@ def extract_search_params(user_msg: str) -> dict:
     return result
 
 
+# 키워드 한/영 별칭 (유사검색·관련성 필터 공용)
+# 잡코리아 등은 제목이 한글이고 검색어는 영문 별칭으로 들어오는 경우가 많아
+# 양쪽을 모두 매칭하도록 별칭을 둔다.
+KEYWORD_ALIASES = {
+    "java": ["자바", "java"],
+    "react": ["리액트", "react"],
+    "typescript": ["타입스크립트", "typescript"],
+    "frontend": ["프론트", "프론트엔드", "frontend"],
+    "backend": ["백엔드", "backend"],
+    "android": ["안드로이드", "android"],
+    "python": ["파이썬", "python"],
+    "spring": ["스프링", "spring"],
+    "node.js": ["노드", "node", "node.js"],
+    "kubernetes": ["쿠버네티스", "kubernetes"],
+    "vue": ["뷰", "vue"],
+    "golang": ["고", "go", "golang"],
+    "devops": ["데브옵스", "devops"],
+    "data": ["데이터", "data"],
+}
+
+
+def _aliases_for(keyword: str) -> list[str]:
+    """키워드(영문 키거나 한글 값이어도)에 해당하는 별칭 목록을 반환."""
+    kw = keyword.strip().lower()
+    if kw in KEYWORD_ALIASES:
+        return KEYWORD_ALIASES[kw]
+    for aliases in KEYWORD_ALIASES.values():
+        if kw in [a.strip().lower() for a in aliases]:
+            return aliases
+    return [kw]
+
+
+def _keep_relevant(job: dict, keyword: str) -> bool:
+    """공고가 검색 키워드와 관련 있는지 가볍게 판별.
+
+    잡코리아 '추천 공고'처럼 검색어와 무관한 광고가 섞이는 것을 거른다.
+    네트워크 호출 없이 제목 문자열만 검사하므로 비용이 거의 없다.
+    """
+    kw = keyword.strip().lower()
+    if not kw:
+        return True
+    aliases = _aliases_for(kw)
+    title = job.get("title", "").lower()
+    return any(a.strip().lower() in title for a in aliases)
+
+
 def search_jobs(params: dict) -> list[dict]:
     query = params["query"]
     if params.get("location"):
         query += " " + params["location"]
     jobs = scrapers.search_all(query, max_per_site=5)
+
+    # 잡코리아 등 '추천 공고' 광고가 검색어와 무관하게 섞이는 것을 방지.
+    # 키워드와 무관한 공고를 가볍게(문자열 검사) 걸러내되, 전부 걸러지면
+    # 원본을 유지해 빈 결과가 되지 않도록 한다.
+    kw = params.get("query", "").strip()
+    if kw:
+        relevant = [j for j in jobs if _keep_relevant(j, kw)]
+        if relevant:
+            jobs = relevant
 
     career_from = params.get("career_from")
     career_to = params.get("career_to")
