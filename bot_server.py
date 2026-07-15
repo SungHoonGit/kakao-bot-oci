@@ -152,13 +152,16 @@ def make_kakao_response(jobs: list[dict], params: dict, user_msg: str = "") -> d
             label += f" {ct}년차 이하"
 
     quick_replies = _build_quick_replies(user_msg, query, jobs)
+    related = _extract_related_from_jobs(jobs, query) or FALLBACK_REPLIES
 
     if not jobs:
         return {
             "version": "2.0",
             "template": {
                 "outputs": [
-                    {"simpleText": {"text": f"🔍 {label} 검색 결과가 없습니다.\n검색어를 바꿔보세요."}}
+                    {"simpleText": {
+                        "text": f"🔍 {label} 검색 결과가 없습니다.\n검색어를 바꿔보세요.\n추천: " + " · ".join(related)
+                    }}
                 ],
                 "quickReplies": quick_replies
             }
@@ -209,10 +212,19 @@ def make_kakao_response(jobs: list[dict], params: dict, user_msg: str = "") -> d
             }
         }
 
+    # 카카오 클라이언트는 carousel 응답에서 template.quickReplies 를 무시하는
+    # 경우가 있어, 추천 검색어(유사단어)를 본문 텍스트로도 항상 노출한다.
+    summary = f"🔍 {label} 검색 결과 {len(jobs)}건"
+    if related:
+        summary += "\n추천 검색어: " + " · ".join(related) + " (아래 버튼으로 바로 검색)"
+
     return {
         "version": "2.0",
         "template": {
-            "outputs": [output],
+            "outputs": [
+                {"simpleText": {"text": summary}},
+                output,
+            ],
             "quickReplies": quick_replies
         }
     }
