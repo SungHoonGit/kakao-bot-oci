@@ -212,19 +212,23 @@ def make_kakao_response(jobs: list[dict], params: dict, user_msg: str = "") -> d
             }
         }
 
-    # 카카오 클라이언트는 carousel 응답에서 template.quickReplies 를 무시하는
-    # 경우가 있어, 추천 검색어(유사단어)를 본문 텍스트로도 항상 노출한다.
-    summary = f"🔍 {label} 검색 결과 {len(jobs)}건"
+    # 별도 simpleText 출력은 카카오톡에서 listCard/carousel 과 함께 쓸 때
+    # quickReplies 터치 영역이 시각 위치와 어긋나는 버그를 유발하므로,
+    # 추천 검색어(유사단어)는 첫 카드 본문(description)에만 넣는다.
     if related:
-        summary += "\n추천 검색어: " + " · ".join(related) + " (아래 버튼으로 바로 검색)"
+        tip = "추천: " + " · ".join(related)
+        first = cards[0]
+        if first.get("items"):
+            first["items"][0]["description"] = (
+                first["items"][0].get("description", "") + "\n" + tip
+            ).strip()
+        else:
+            first["header"] = {"title": first["header"]["title"] + " · " + tip}
 
     return {
         "version": "2.0",
         "template": {
-            "outputs": [
-                {"simpleText": {"text": summary}},
-                output,
-            ],
+            "outputs": [output],
             "quickReplies": quick_replies
         }
     }
