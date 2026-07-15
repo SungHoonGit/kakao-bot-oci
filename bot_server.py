@@ -104,22 +104,59 @@ STOP_WORDS = {"개발자", "채용", "구인", "모집", "프리랜서", "정규
               "주니어", "시니어", "중급", "고급", "초급", "신입", "경력",
               "프로젝트", "가능", "우대", "필수", "담당", "업무", "조건"}
 
+# 유사 검색어 후보로 허용할 의미 있는 키워드 화이트리스트.
+# 제목에서 아무 단어나 뽑으면 '카페'·브랜드명 등 잡음이 버튼으로 노출되므로,
+# 기술/직무 키워드에 해당하는 단어만 유사검색 후보로 허용한다.
+RELATED_ALLOWLIST = {
+    # 언어
+    "java", "python", "javascript", "typescript", "c", "c++", "c#", "go", "rust",
+    "kotlin", "swift", "ruby", "php", "scala", "dart", "r",
+    # 프론트엔드
+    "react", "vue", "angular", "svelte", "next.js", "nuxt", "jquery", "html", "css",
+    # 백엔드/프레임워크
+    "spring", "spring boot", "node.js", "node", "express", "django", "flask",
+    "fastapi", "laravel", "nestjs", "asp", "net", ".net",
+    # 데이터/DB
+    "mysql", "postgresql", "oracle", "mongodb", "redis", "elasticsearch",
+    "sql", "nosql", "kafka", "rabbitmq", "spark", "hadoop",
+    # 인프라/클라우드
+    "docker", "kubernetes", "aws", "azure", "gcp", "jenkins", "terraform",
+    "ansible", "linux", "nginx", "ci/cd", "devops",
+    # 직무/역할
+    "백엔드", "프론트엔드", "풀스택", "데이터엔지니어", "데이터분석가",
+    "머신러닝", "딥러닝", "ml", "ai", "devops", "sre", "클라우드", "게임",
+    "서버", "웹", "앱", "안드로이드", "ios", "모바일", "qa", "보안", "dba",
+    "웹개발", "서버개발", "클라이언트",
+}
+
 FALLBACK_REPLIES = ["리액트", "자바 신입"]
 
 
 def _extract_related_from_jobs(jobs: list[dict], exclude_query: str) -> list[str]:
     exclude_lower = exclude_query.lower()
     word_counts = {}
+
+    def consider(w: str):
+        w = w.strip().strip("-")
+        if not w or len(w) < 2:
+            return
+        if w.lower() == exclude_lower or w.lower() in STOP_WORDS:
+            return
+        if re.match(r"^\d+$", w):
+            return
+        # 화이트리스트에 없는 단어(카페, 브랜드명 등)는 유사검색 후보에서 제외
+        if w.lower() not in RELATED_ALLOWLIST:
+            return
+        word_counts[w] = word_counts.get(w, 0) + 1
+
     for job in jobs:
+        # 1) 기술스택 태그(이미 정제된 값)를 우선 고려
+        for t in job.get("tech_stack", []) or []:
+            consider(t)
+        # 2) 제목에서 단어 추출
         for w in re.split(r"[\s\[\]\(\)\/,|·‧:]+", job.get("title", "")):
-            w = w.strip().strip("-")
-            if not w or len(w) < 2:
-                continue
-            if w.lower() == exclude_lower or w.lower() in STOP_WORDS:
-                continue
-            if re.match(r"^\d+$", w):
-                continue
-            word_counts[w] = word_counts.get(w, 0) + 1
+            consider(w)
+
     return [w for w, _ in sorted(word_counts.items(), key=lambda x: -x[1])[:2]]
 
 
